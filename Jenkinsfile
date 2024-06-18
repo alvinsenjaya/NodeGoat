@@ -71,6 +71,21 @@ pipeline {
                 archiveArtifacts artifacts: 'retire-scan-report.json'
             }
         }
+        stage('SCA Trivy Scan Dockerfile Misconfiguration') {
+            agent {
+              docker {
+                  image 'aquasec/trivy:latest'
+                  args '-u root --network host --entrypoint='
+              }
+            }
+            steps {
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'trivy config Dockerfile --exit-code=1 --format json > trivy-scan-dockerfile-report.json'
+                }
+                sh 'cat trivy-scan-dockerfile-report.json'
+                archiveArtifacts artifacts: 'trivy-scan-dockerfile-report.json'
+            }
+        }
         stage('Build Docker Image and Push to Docker Registry') {
             agent {
                 docker {
