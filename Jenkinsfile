@@ -37,6 +37,7 @@ pipeline {
               }
             }
             steps {
+                sh 'npm install grunt-nodemon'
                 sh 'npm run test'
             }
         }
