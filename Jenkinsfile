@@ -4,6 +4,9 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('DockerLogin')
         SNYK_CREDENTIALS = credentials('SnykToken')
         SONARQUBE_CREDENTIALS = credentials('SonarToken')
+        DEPLOY_USERNAME = 'jtf01645' // Deployment username variable
+        TARGET_IP = '192.168.1.19' // Target IP for deployment variable
+        SONARQUBE_IP = '192.168.1.19' // SonarQube IP variable
     }
     stages {
         stage('Secret Scanning Using Trufflehog') {
@@ -110,7 +113,7 @@ pipeline {
             }
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'sonar-scanner -Dsonar.projectKey=NodeGoat -Dsonar.qualitygate.wait=true -Dsonar.sources=. -Dsonar.host.url=http://192.168.0.105:9000 -Dsonar.token=$SONARQUBE_CREDENTIALS_PSW' 
+                    sh 'sonar-scanner -Dsonar.projectKey=NodeGoat -Dsonar.qualitygate.wait=true -Dsonar.sources=. -Dsonar.host.url=http://$SONARQUBE_IP:9000 -Dsonar.token=$SONARQUBE_CREDENTIALS_PSW'
                 }
             }
         }
@@ -136,12 +139,12 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: "DeploymentSSHKey", keyFileVariable: 'keyfile')]) {
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 docker pull xenjutsu/nodegoat:0.1'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 docker rm --force mongodb'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 docker run --detach --name mongodb -p 27017:27017 mongo:3'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 docker rm --force nodegoat'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no ubuntu@192.168.0.107 docker run -it --detach -p 4000:4000 --name nodegoat --network host xenjutsu/nodegoat:0.1'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker pull xenjutsu/nodegoat:0.1'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force mongodb'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run --detach --name mongodb -p 27017:27017 mongo:3'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force nodegoat'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run -it --detach -p 4000:4000 --name nodegoat --network host xenjutsu/nodegoat:0.1'
                 }
             }
         }
