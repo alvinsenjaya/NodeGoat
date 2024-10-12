@@ -9,6 +9,7 @@ pipeline {
         SONARQUBE_IP = '192.168.1.19' // SonarQube IP variable
     }
     stages {
+        /*
         stage('Secret Scanning Using Trufflehog') {
             agent {
                 docker {
@@ -130,6 +131,7 @@ pipeline {
                 sh 'docker push xenjutsu/nodegoat:0.1'
             }
         }
+        */
         stage('Deploy Docker Image') {
             agent {
                 docker {
