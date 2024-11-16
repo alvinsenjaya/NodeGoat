@@ -143,6 +143,7 @@ pipeline {
                     sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker pull xenjutsu/nodegoat:0.1'
                     sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force mongodb'
                     sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run --detach --name mongodb -p 27017:27017 mongo:3'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP npm run db:seed --prefix /home/ubuntu/NodeGoat'
                     sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force nodegoat'
                     sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run -it --detach -p 4000:4000 --name nodegoat --network host xenjutsu/nodegoat:0.1'
                 }
