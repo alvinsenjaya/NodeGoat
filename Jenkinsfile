@@ -130,7 +130,6 @@ pipeline {
                 sh 'docker push xenjutsu/nodegoat:0.1'
             }
         }
-        */
         stage('Deploy Docker Image') {
             agent {
                 docker {
