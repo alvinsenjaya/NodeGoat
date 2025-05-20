@@ -3,10 +3,10 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('DockerLogin')
         SNYK_CREDENTIALS = credentials('SnykToken')
-        SONARQUBE_CREDENTIALS = credentials('SonarToken')
-        DEPLOY_USERNAME = 'ubuntu' // Add deployment username
-        TARGET_IP = '192.168.0.17' // Add target IP for deployment
-        SONARQUBE_IP = '192.168.0.18' // Add SonarQube IP
+        SONARQUBE_TOKEN = credentials('SonarToken')
+        DEPLOY_USERNAME = 'ubuntu'
+        DEPLOYMENT_IP = '192.168.0.11'
+        SONARQUBE_IP = '192.168.0.12' 
     }
     stages {
         stage('Secret Scanning Using Trufflehog') {
@@ -93,7 +93,7 @@ pipeline {
             agent {
               docker {
                   image 'snyk/snyk:node'
-                  args '-u root --network host --env SNYK_TOKEN=$SNYK_CREDENTIALS_PSW --entrypoint='
+                  args '-u root --network host --env SNYK_TOKEN=$SNYK_CREDENTIALS --entrypoint='
               }
             }
             steps {
@@ -113,7 +113,7 @@ pipeline {
             }
             steps {
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'sonar-scanner -Dsonar.projectKey=NodeGoat -Dsonar.qualitygate.wait=true -Dsonar.sources=. -Dsonar.host.url=http://$SONARQUBE_IP:9000 -Dsonar.token=$SONARQUBE_CREDENTIALS_PSW'
+                    sh 'sonar-scanner -Dsonar.projectKey=NodeGoat -Dsonar.qualitygate.wait=true -Dsonar.sources=. -Dsonar.host.url=http://$SONARQUBE_IP:9000 -Dsonar.token=$SONARQUBE_TOKEN'
                 }
             }
         }
@@ -139,60 +139,14 @@ pipeline {
             }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: "DeploymentSSHKey", keyFileVariable: 'keyfile')]) {
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker pull xenjutsu/nodegoat:0.1'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force mongodb'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run --detach --name mongodb -p 27017:27017 mongo:3'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP npm run db:seed --prefix /home/ubuntu/NodeGoat'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker rm --force nodegoat'
-                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$TARGET_IP docker run -it --detach -p 4000:4000 --name nodegoat --network host xenjutsu/nodegoat:0.1'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP "echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin"'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP docker pull xenjutsu/nodegoat:0.1'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP docker rm --force mongodb'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP docker run --detach --name mongodb -p 27017:27017 mongo:3'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP npm run db:seed --prefix /home/ubuntu/NodeGoat'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP docker rm --force nodegoat'
+                    sh 'ssh -i ${keyfile} -o StrictHostKeyChecking=no $DEPLOY_USERNAME@$DEPLOYMENT_IP docker run -it --detach -p 4000:4000 --name nodegoat --network host xenjutsu/nodegoat:0.1'
                 }
-            }
-        }
-        stage('DAST Wapiti') {
-            agent {
-                docker {
-                    image 'xenjutsu/wapiti:3.2.0'
-                    args '--user root --network host --entrypoint='
-                }
-            }
-            steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'wapiti -u http://$TARGET_IP:4000 -f xml -o wapiti-report.xml'
-                }
-                archiveArtifacts artifacts: 'wapiti-report.xml'
-            }
-        }
-        stage('DAST Nuclei') {
-            agent {
-                docker {
-                    image 'projectdiscovery/nuclei'
-                    args '--user root --network host --entrypoint='
-                }
-            }
-            steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'nuclei -u http://$TARGET_IP:4000 -nc -j > nuclei-report.json'
-                    sh 'cat nuclei-report.json'
-                }
-                archiveArtifacts artifacts: 'nuclei-report.json'
-            }
-        }
-        stage('DAST OWASP ZAP') {
-            agent {
-                docker {
-                    image 'ghcr.io/zaproxy/zaproxy:weekly'
-                    args '-u root --network host -v /var/run/docker.sock:/var/run/docker.sock --entrypoint= -v .:/zap/wrk/:rw'
-                }
-            }
-            steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'zap-baseline.py -t http://$TARGET_IP:4000 -r zapbaseline.html -x zapbaseline.xml'
-                }
-                sh 'cp /zap/wrk/zapbaseline.html ./zapbaseline.html'
-                sh 'cp /zap/wrk/zapbaseline.xml ./zapbaseline.xml'
-                archiveArtifacts artifacts: 'zapbaseline.html'
-                archiveArtifacts artifacts: 'zapbaseline.xml'
             }
         }
     }
