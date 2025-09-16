@@ -33,6 +33,10 @@ function ContributionsHandler(db) {
         const afterTax = eval(req.body.afterTax);
         const roth = eval(req.body.roth);
 
+        const preTax1 = eval(req.body.preTax);
+        const afterTax1 = eval(req.body.afterTax);
+        const roth1 = eval(req.body.roth);
+
         /*
         //Fix for A1 -1 SSJS Injection attacks - uses alternate method to eval
         const preTax = parseInt(req.body.preTax);
